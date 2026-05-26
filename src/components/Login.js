@@ -1,0 +1,67 @@
+import React, { useRef } from 'react';
+import { TextField, Button, Container, Typography, Box } from '@mui/material';
+import { Link, useNavigate } from 'react-router-dom';
+
+function Login() {
+  let navigator = useNavigate(); // 페이지 이동 location.href 같은 기능
+  let idRef = useRef("");
+  let pwdRef = useRef("");
+
+  return (
+    <Container maxWidth="xs">
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        minHeight="100vh"
+      >
+        <Typography variant="h4" gutterBottom>
+          로그인
+        </Typography>
+        <TextField inputRef={idRef} label="Id" variant="outlined" margin="normal" fullWidth />
+        <TextField
+          inputRef ={pwdRef}
+          label="Password"
+          variant="outlined"
+          margin="normal"
+          fullWidth
+          type="password"
+        />
+        <Button 
+          variant="contained" 
+          color="primary" 
+          fullWidth style={{ marginTop: '20px' }} 
+          onClick={()=>{
+            console.log(idRef.current.value);
+            let info = {
+              userId : idRef.current.value,
+              pwd : pwdRef.current.value,
+            };
+            fetch("http://localhost:3010/user/login", {
+              method : "POST",
+              headers : {
+                "Content-type" : "application/json"
+              },
+              body : JSON.stringify(info)
+            })
+              .then(res => res.json()) // return 성공 시 then 실행
+              .then(data =>{
+                alert(data.message);
+                navigator("/feed"); // login 성공 시 이동할 주소
+              })
+              .catch(err =>{
+                alert("서버 에러 발생!")
+              }); // return 실패시 catch
+        }}>
+          로그인
+        </Button>
+        <Typography variant="body2" style={{ marginTop: '10px' }}>
+          아직 회원이 아니라면 ? <Link to="/join">회원가입</Link>
+        </Typography>
+      </Box>
+    </Container>
+  );
+}
+
+export default Login;
