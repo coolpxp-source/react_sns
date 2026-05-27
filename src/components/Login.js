@@ -48,7 +48,11 @@ function Login() {
               .then(res => res.json()) // return 성공 시 then 실행
               .then(data =>{
                 alert(data.message);
-                navigator("/feed"); // login 성공 시 이동할 주소
+                if(data.result){
+                  navigator("/feed"); // login 성공 시 이동할 주소
+                  // console.log(data.token)
+                  localStorage.setItem("token",data.token)
+                }
               })
               .catch(err =>{
                 alert("서버 에러 발생!")

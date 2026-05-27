@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { jwtDecode } from "jwt-decode";
 import {
   Grid2,
   AppBar,
@@ -23,28 +24,16 @@ import {
   Avatar,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { useNavigate } from 'react-router-dom';
 
-const mockFeeds = [
-  {
-    id: 1,
-    title: '게시물 1',
-    description: '이것은 게시물 1의 설명입니다.',
-    image: 'https://images.unsplash.com/photo-1551963831-b3b1ca40c98e',
-  },
-  {
-    id: 2,
-    title: '게시물 2',
-    description: '이것은 게시물 2의 설명입니다.',
-    image: 'https://images.unsplash.com/photo-1521747116042-5a810fda9664',
-  },
-  // 추가 피드 데이터
-];
 
 function Feed() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [selectedFeed, setSelectedFeed] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [feeds, setFeeds] = useState([]); // 가져온 userid의 feed를 화면에 뿌리기
 
   const handleClickOpen = (feed) => {
     setSelectedFeed(feed);
@@ -70,6 +59,37 @@ function Feed() {
     }
   };
 
+  function handleGetFeed(){
+    // 현재 로그인한 사용자의 피드목록 가져오기
+    const token = localStorage.getItem("token"); // 로그인한 사용자의 정보가 localstorage 안 token안에 담겨있다.
+    if(token){
+      const decoded = jwtDecode(token);
+      console.log(decoded.userId);
+      fetch("http://localhost:3010/feed/" + decoded.userId, {  // ← ) 를 맨 뒤로
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("data ==> ", data);
+        console.log(data.list[0]);
+        setFeeds(data.list);
+      })
+      .catch(err => {
+        alert("서버 오류 발생.");
+      });
+    }else{
+      alert("로그인 후 이용하세요.");
+      navigate("/");
+    }
+  }
+  useEffect(()=>{ // 화면에 들어오자마자 실행되도록 : mounted랑 같다.
+    handleGetFeed();
+  },[])
+
   return (
     <Container maxWidth="md">
       <AppBar position="static">
@@ -80,20 +100,20 @@ function Feed() {
 
       <Box mt={4}>
         <Grid2 container spacing={3}>
-          {mockFeeds.map((feed) => (
-            <Grid2 xs={12} sm={6} md={4} key={feed.id}>
+          {feeds.map((feed) => (
+            <Grid2 key={feed.ID} size={{ xs: 12, sm: 6, md: 4 }}>  {/* ← size로 변경 */}
               <Card>
                 <CardMedia
                   component="img"
                   height="200"
-                  image={feed.image}
-                  alt={feed.title}
+                  image={feed.IMGPATH}
+                  alt='이미지 없음'
                   onClick={() => handleClickOpen(feed)}
                   style={{ cursor: 'pointer' }}
                 />
                 <CardContent>
                   <Typography variant="body2" color="textSecondary">
-                    {feed.title}
+                    {feed.TITLE}
                   </Typography>
                 </CardContent>
               </Card>
@@ -104,7 +124,8 @@ function Feed() {
 
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg"> {/* 모달 크기 조정 */}
         <DialogTitle>
-          {selectedFeed?.title}
+          {selectedFeed?.CONTENT} 
+          {/* 삼항연산자 */}
           <IconButton
             edge="end"
             color="inherit"
@@ -117,11 +138,11 @@ function Feed() {
         </DialogTitle>
         <DialogContent sx={{ display: 'flex' }}>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="body1">{selectedFeed?.description}</Typography>
-            {selectedFeed?.image && (
+            <Typography variant="body1">{selectedFeed?.CONTENT}</Typography>
+            {selectedFeed?.IMGPATH && (
               <img
-                src={selectedFeed.image}
-                alt={selectedFeed.title}
+                src={selectedFeed.IMGPATH}
+                alt={selectedFeed.TITLE}
                 style={{ width: '100%', marginTop: '10px' }}
               />
             )}
@@ -156,6 +177,28 @@ function Feed() {
             </Button>
           </Box>
         </DialogContent>
+        <DialogActions>
+          <Button variant='contained' onClick={()=>{
+            fetch("http://localhost:3010/feed/" + selectedFeed.ID,{
+              method : "DELETE", // default로 GET
+              headers: {
+                  "Authorization": "Bearer " + localStorage.getItem("token")
+              }
+            })
+            .then(res => res.json())
+            .then(data => {
+              alert(data.message);
+              console.log(data);
+              handleClose();
+              handleGetFeed();
+            })
+            .catch(err =>{
+              console.log("서버 에러");
+            })
+          }} color="error">
+            삭제
+          </Button>
+        </DialogActions>
         <DialogActions>
           <Button onClick={handleClose} color="primary">
             닫기
