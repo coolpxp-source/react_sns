@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { jwtDecode } from "jwt-decode";
 import {
   TextField,
   Button,
@@ -13,12 +14,76 @@ import {
   IconButton,
 } from '@mui/material';
 import { PhotoCamera } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
-  const [file, setFile] = React.useState(null);
+  let titleRef = useRef("");
+  let contentRef = useRef("");
+  const [file, setFile] = useState([]);  // ← 빈 배열로
+  const navigate = useNavigate();
 
   const handleFileChange = (event) => {
-    setFile(event.target.files[0]);
+    setFile(event.target.files);
+  };
+
+  // ← fnUploadFile을 handleFileChange 밖으로 꺼내기
+  const fnUploadFile = (feedId) => {
+    const formData = new FormData();
+    for(let i = 0; i < file.length; i++){
+      formData.append("file", file[i]);
+    }
+    formData.append("feedId", feedId);
+    fetch("http://localhost:3010/register/upload", {
+      method: "POST",
+      body: formData  // ← feed 말고 formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log(data);
+      navigate("/feed");
+    })
+    .catch(err => {
+      console.error(err);
+    });
+  };
+
+  const handleRegister = () => {
+    const token = localStorage.getItem("token");
+    if(!token){
+      alert("로그인 후 이용하세요.");
+      navigate("/");
+      return;
+    }
+    const decoded = jwtDecode(token);
+
+    let info = {
+      userId: decoded.userId,
+      title: titleRef.current.value,
+      content: contentRef.current.value
+    };
+
+    // 1. 먼저 피드 등록
+    fetch("http://localhost:3010/register", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-type": "application/json"
+      },
+      body: JSON.stringify(info)
+    })
+    .then(res => res.json())
+    .then(data => {
+      // 2. 파일 있으면 이미지 업로드
+      if(file.length > 0){
+        fnUploadFile(data.insertId);
+      } else {
+        alert("등록 완료!");
+        navigate("/feed");
+      }
+    })
+    .catch(err => {
+      alert("서버 오류 발생.");
+    });
   };
 
   return (
@@ -44,8 +109,9 @@ function Register() {
           </Select>
         </FormControl>
 
-        <TextField label="제목" variant="outlined" margin="normal" fullWidth />
+        <TextField inputRef={titleRef} label="제목" variant="outlined" margin="normal" fullWidth />
         <TextField
+          inputRef={contentRef}
           label="내용"
           variant="outlined"
           margin="normal"
@@ -67,19 +133,22 @@ function Register() {
               <PhotoCamera />
             </IconButton>
           </label>
-          {file && (
-            <Avatar
-              alt="첨부된 이미지"
-              src={URL.createObjectURL(file)}
-              sx={{ width: 56, height: 56, marginLeft: 2 }}
-            />
+          {file.length > 0 && (
+            [...file].map(item=>{
+                return <Avatar
+                key={item.name}
+                alt="첨부된 이미지"
+                src={URL.createObjectURL(item)}
+                sx={{ width: 56, height: 56, marginLeft: 2 }}
+              />
+            })
           )}
           <Typography variant="body1" sx={{ marginLeft: 2 }}>
             {file ? file.name : '첨부할 파일 선택'}
           </Typography>
         </Box>
 
-        <Button variant="contained" color="primary" fullWidth style={{ marginTop: '20px' }}>
+        <Button variant="contained" color="primary" fullWidth style={{ marginTop: '20px' }} onClick={handleRegister}>
           등록하기
         </Button>
       </Box>
